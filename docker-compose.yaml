@@ -1,0 +1,13 @@
+services:
+  mqtt-broker:
+    image: mqtt-broker-iotdata
+    container_name: mqtt-broker
+    pull_policy: never
+    networks:
+      storm_network:
+    ports:
+      - 1883:1883
+
+networks:
+  storm_network:
+    driver: bridge

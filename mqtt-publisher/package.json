@@ -1,0 +1,14 @@
+{
+  "name": "debs-2014-mqtt-replay",
+  "version": "1.0.0",
+  "description": "Replay DEBS 2014 CSV data to MQTT broker based on original timestamps.",
+  "type": "commonjs",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js",
+    "check": "node --check src/main.js && node --check src/CsvReplayReader.js && node --check src/ReplayScheduler.js && node --check src/MqttPublisher.js && node --check src/StatisticsReporter.js"
+  },
+  "dependencies": {
+    "mqtt": "^5.10.0"
+  }
+}
