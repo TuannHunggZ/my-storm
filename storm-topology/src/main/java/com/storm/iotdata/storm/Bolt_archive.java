@@ -2,7 +2,6 @@ package com.storm.iotdata.storm;
 
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
-import org.apache.storm.topology.BasicOutputCollector;
 import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.topology.base.BaseRichBolt;
 import org.apache.storm.tuple.Tuple;
@@ -14,6 +13,8 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -29,7 +30,7 @@ public class Bolt_archive extends BaseRichBolt {
 
 	private static final String INSERT_SQL =
 		"INSERT INTO historical_load (event_id, timestamp, value, plug_id, household_id, house_id) " +
-		"VALUES (?, ?, ?, ?, ?, ?)";
+		"VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (event_id) DO NOTHING";
 
 	private final String jdbcUrl;
 	private final String username;
@@ -40,6 +41,7 @@ public class Bolt_archive extends BaseRichBolt {
 	private transient PreparedStatement preparedStatement;
 	private transient int batchCount;
 	private transient long lastFlushTimeMs;
+	private transient List<Tuple> pendingTuples;
 
 	/**
 	 * Creates the bolt with the database connection settings.
@@ -66,6 +68,7 @@ public class Bolt_archive extends BaseRichBolt {
 		this.collector = collector;
 		this.batchCount = 0;
 		this.lastFlushTimeMs = System.currentTimeMillis();
+		this.pendingTuples = new ArrayList<>(BATCH_SIZE);
 
 		try {
 			this.connection = DriverManager.getConnection(jdbcUrl, username, password);
@@ -86,15 +89,30 @@ public class Bolt_archive extends BaseRichBolt {
 	 */
 	@Override
 	public void execute(Tuple tuple) {
+		if (tuple.isTickTuple()) {
+			try {
+				flushBatch();
+			} catch (SQLException exception) {
+				LOGGER.error("Failed to flush PostgreSQL batch on tick tuple", exception);
+			}
+			return;
+		}
+
+		boolean tupleAddedToBatch = false;
+
 		try {
 			flushIfTimedOut();
 			addToBatch(tuple);
+			tupleAddedToBatch = true;
 			flushIfBatchFull();
-			collector.ack(tuple);
 		} catch (SQLException exception) {
-			handleDatabaseFailure(tuple, exception);
+			handleDatabaseFailure(tuple, tupleAddedToBatch, exception);
 		} catch (RuntimeException exception) {
-			collector.fail(tuple);
+			if (tupleAddedToBatch) {
+				failPendingTuples();
+			} else {
+				collector.fail(tuple);
+			}
 			throw exception;
 		}
 	}
@@ -138,6 +156,7 @@ public class Bolt_archive extends BaseRichBolt {
 		preparedStatement.setInt(5, householdId);
 		preparedStatement.setInt(6, houseId);
 		preparedStatement.addBatch();
+		pendingTuples.add(tuple);
 
 		batchCount += 1;
 	}
@@ -168,23 +187,41 @@ public class Bolt_archive extends BaseRichBolt {
 			preparedStatement.executeBatch();
 			connection.commit();
 			LOGGER.info("Flushed {} records to historical_load", batchCount);
+			ackPendingTuples();
 		} catch (SQLException exception) {
 			try {
 				connection.rollback();
 			} catch (SQLException rollbackException) {
 				LOGGER.warn("Failed to rollback PostgreSQL transaction", rollbackException);
 			}
+			failPendingTuples();
 			throw exception;
 		} finally {
 			preparedStatement.clearBatch();
 			batchCount = 0;
+			pendingTuples.clear();
 			lastFlushTimeMs = System.currentTimeMillis();
 		}
 	}
 
-	private void handleDatabaseFailure(Tuple tuple, SQLException exception) {
+	private void handleDatabaseFailure(Tuple tuple, boolean tupleAddedToBatch, SQLException exception) {
 		LOGGER.error("Failed to insert tuple into PostgreSQL archive", exception);
-		collector.fail(tuple);
+		if (!tupleAddedToBatch) {
+			collector.fail(tuple);
+		}
+		failPendingTuples();
+	}
+
+	private void ackPendingTuples() {
+		for (Tuple pendingTuple : pendingTuples) {
+			collector.ack(pendingTuple);
+		}
+	}
+
+	private void failPendingTuples() {
+		for (Tuple pendingTuple : pendingTuples) {
+			collector.fail(pendingTuple);
+		}
 	}
 
 	private long getLongField(Tuple tuple, String fieldName) {
