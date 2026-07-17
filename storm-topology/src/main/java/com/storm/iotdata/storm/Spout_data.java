@@ -275,18 +275,24 @@ public class Spout_data extends BaseRichSpout {
 			getRequiredLong(root, "timestamp"),
 			getRequiredDouble(root, "value"),
 			property,
-			getRequiredInt(root, "plugId"),
-			getRequiredInt(root, "householdId"),
-			getRequiredInt(root, "houseId")
+			getRequiredInt(root, "plug_id"),
+			getRequiredInt(root, "household_id"),
+			getRequiredInt(root, "house_id")
 		);
 	}
 
 	private int getRequiredInt(JsonNode root, String fieldName) {
 		JsonNode node = root.get(fieldName);
-		if (node == null || !node.canConvertToInt()) {
-			throw new IllegalArgumentException("Missing or invalid field: " + fieldName);
+
+		if (node == null) {
+			throw new IllegalArgumentException("Missing field: " + fieldName);
 		}
-		return node.asInt();
+
+		try {
+			return Integer.parseInt(node.asText());
+		} catch (NumberFormatException e) {
+			throw new IllegalArgumentException("Invalid integer field: " + fieldName, e);
+		}
 	}
 
 	private long getRequiredLong(JsonNode root, String fieldName) {
@@ -299,10 +305,15 @@ public class Spout_data extends BaseRichSpout {
 
 	private double getRequiredDouble(JsonNode root, String fieldName) {
 		JsonNode node = root.get(fieldName);
-		if (node == null || !node.isNumber()) {
-			throw new IllegalArgumentException("Missing or invalid field: " + fieldName);
+		if (node == null) {
+        	throw new IllegalArgumentException("Missing field: " + fieldName);
 		}
-		return node.asDouble();
+
+		try {
+			return Double.parseDouble(node.asText());
+		} catch (NumberFormatException e) {
+			throw new IllegalArgumentException("Invalid double field: " + fieldName, e);
+		}
 	}
 
 	/**
