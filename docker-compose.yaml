@@ -8,6 +8,24 @@ services:
     ports:
       - 1883:1883
 
+  postgres:
+    image: postgres:15.3-alpine
+    container_name: postgres
+    networks:
+      storm_network:
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: iotdata
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  postgres_data:
+
 networks:
   storm_network:
     driver: bridge
