@@ -112,7 +112,8 @@ public class Spout_data extends BaseRichSpout {
 					event.plugId,
 					event.householdId,
 					event.houseId
-				)
+				),
+				event.id
 			);
 			emitted += 1;
 		}
