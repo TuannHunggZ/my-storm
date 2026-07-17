@@ -42,7 +42,6 @@ public class Spout_data extends BaseRichSpout {
 	private static final String STREAM_ID_DATA = "data";
 	private static final String FIELD_TIMESTAMP = "timestamp";
 	private static final String FIELD_VALUE = "value";
-	private static final String FIELD_PROPERTY = "property";
 	private static final String FIELD_PLUG_ID = "plugId";
 	private static final String FIELD_HOUSEHOLD_ID = "householdId";
 	private static final String FIELD_HOUSE_ID = "houseId";
@@ -108,7 +107,6 @@ public class Spout_data extends BaseRichSpout {
 				new Values(
 					event.timestamp,
 					event.value,
-					event.property,
 					event.plugId,
 					event.householdId,
 					event.houseId
@@ -134,7 +132,6 @@ public class Spout_data extends BaseRichSpout {
 			new Fields(
 				FIELD_TIMESTAMP,
 				FIELD_VALUE,
-				FIELD_PROPERTY,
 				FIELD_PLUG_ID,
 				FIELD_HOUSEHOLD_ID,
 				FIELD_HOUSE_ID
@@ -274,7 +271,6 @@ public class Spout_data extends BaseRichSpout {
 		return new LoadEvent(
 			getRequiredLong(root, "timestamp"),
 			getRequiredDouble(root, "value"),
-			property,
 			getRequiredInt(root, "plugId"),
 			getRequiredInt(root, "householdId"),
 			getRequiredInt(root, "houseId")
@@ -312,15 +308,13 @@ public class Spout_data extends BaseRichSpout {
 
 		private final long timestamp;
 		private final double value;
-		private final int property;
 		private final int plugId;
 		private final int householdId;
 		private final int houseId;
 
-		private LoadEvent(long timestamp, double value, int property, int plugId, int householdId, int houseId) {
+		private LoadEvent(long timestamp, double value, int plugId, int householdId, int houseId) {
 			this.timestamp = timestamp;
 			this.value = value;
-			this.property = property;
 			this.plugId = plugId;
 			this.householdId = householdId;
 			this.houseId = houseId;
