@@ -1,10 +1,12 @@
 package com.storm.iotdata.storm;
 
+import org.apache.storm.Config;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.topology.base.BaseRichBolt;
 import org.apache.storm.tuple.Tuple;
+import org.apache.storm.utils.TupleUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,7 +91,7 @@ public class Bolt_archive extends BaseRichBolt {
 	 */
 	@Override
 	public void execute(Tuple tuple) {
-		if (tuple.isTickTuple()) {
+		if (TupleUtils.isTick(tuple)) {
 			try {
 				flushBatch();
 			} catch (SQLException exception) {
@@ -125,6 +127,20 @@ public class Bolt_archive extends BaseRichBolt {
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
 		// Sink bolt: no downstream streams.
+	}
+
+	/**
+	 * Configures this bolt to receive a tick tuple every second so that
+	 * buffered records are flushed periodically even when the batch size
+	 * threshold has not been reached.
+	 *
+	 * @return Component-specific Storm configuration.
+	 */
+	@Override
+	public Map<String, Object> getComponentConfiguration() {
+		Config config = new Config();
+		config.put(Config.TOPOLOGY_TICK_TUPLE_FREQ_SECS, 1);
+		return config;
 	}
 
 	/**
